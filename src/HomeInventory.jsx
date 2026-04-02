@@ -62,7 +62,7 @@ function containerDepth(containerId, allContainers, depth=0) {
 
 // ─── AUTH SCREENS ───────────────────────────────────────────────────────────
 // SUPERADMIN_EMAIL is the one account that gets superadmin role — set this to your email.
-const SUPERADMIN_EMAIL = "jacob@homestash.app";
+const SUPERADMIN_EMAIL = "jacobedison0010@gmail.com";
 
 function AuthScreen({T,onAuth}){
   const [mode,setMode]=useState("login"); // login | register

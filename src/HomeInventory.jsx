@@ -1237,9 +1237,11 @@ function UsersView({users,currentUserId,canAdmin,isSuperAdmin,houses,changeRole,
       </div>}
     </div>;
   }
+const myHouseId = users.find(u => u.id === currentUserId)?.houseId;
+  const sameHouseUsers = users.filter(u => u.houseId === myHouseId && u.role !== "superadmin");
   return<div>
     <div style={{fontSize:16,fontWeight:500,marginBottom:14,color:T.text}}>Users</div>
-    <UserTable userList={users.filter(u=>u.role!=="superadmin")} editable={true} showDelete={false}/>
+    <UserTable userList={sameHouseUsers} editable={true} showDelete={false}/>
   </div>;
 }
 

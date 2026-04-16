@@ -248,16 +248,40 @@ export default function App() {
   useEffect(()=>{
     if(!authUser)return;
     // Load users first so currentUser.houseId is available before rooms render
-    db.getAll("users").then(d=>setUsers(d.map(mapUser))).then(()=>{
+db.getAll("users").then(d=>setUsers(d.map(mapUser))).then(async ()=>{
+      const meRes = await supabase.from("users").select("*").eq("id", authUser.id).single();
+      const houseId = meRes?.data?.house_id || null;
+      const isSA = meRes?.data?.role === "superadmin";
+
+      const roomsRes = houseId && !isSA
+        ? await supabase.from("rooms").select("*").eq("house_id", houseId)
+        : await supabase.from("rooms").select("*");
+      const fetchedRooms = (roomsRes.data || []).map(mapRoom);
+      setRooms(fetchedRooms);
+      const roomIds = fetchedRooms.map(r => r.id);
+
+      const byRoom = async (table, mapper) => {
+        if (isSA || !houseId) { const {data}=await supabase.from(table).select("*"); return (data||[]).map(mapper); }
+        if (!roomIds.length) return [];
+        const {data}=await supabase.from(table).select("*").in("room_id", roomIds);
+        return (data||[]).map(mapper);
+      };
+
+      const fetchedStorages = await byRoom("storages", mapStorage);
+      setStorages(fetchedStorages);
+      const storageIds = fetchedStorages.map(s => s.id);
+
+      const containersData = isSA || !houseId
+        ? (await supabase.from("containers").select("*")).data || []
+        : storageIds.length ? (await supabase.from("containers").select("*").in("storage_id", storageIds)).data || [] : [];
+      setContainers(containersData.map(mapContainer));
+
       return Promise.all([
         db.getAll("houses").then(d=>setHouses(d)),
-        db.getAll("tags").then(d=>setTags(d)),
+        supabase.from("tags").select("*").then(({data})=>setTags(data||[])),
         db.getAll("room_groups").then(d=>setRoomGroups(d.map(mapGroup))),
-        db.getAll("rooms").then(d=>setRooms(d.map(mapRoom))),
-        db.getAll("storages").then(d=>setStorages(d.map(mapStorage))),
-        db.getAll("containers").then(d=>setContainers(d.map(mapContainer))),
-        db.getAll("items").then(d=>setItems(d.map(mapItem))),
-        db.getAll("move_logs").then(d=>setMoveLogs(d.map(mapMoveLog))),
+        byRoom("items", mapItem).then(d=>setItems(d)),
+        byRoom("move_logs", mapMoveLog).then(d=>setMoveLogs(d)),
         db.getAll("lend_logs").then(d=>setLendLogs(d.map(mapLendLog))),
         db.getAll("guest_permissions").then(d=>setGuestPerms(d.map(mapGuestPerm))),
       ]);

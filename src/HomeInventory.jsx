@@ -419,12 +419,31 @@ supabase.from("users").select("*").then(async ({data:allU})=>{
     setStorages(p=>p.filter(s=>s.id!==sid));
   };
   const cascadeDeleteRoom = async (rid) => {
-    const sids = storages.filter(s=>s.roomId===rid).map(s=>s.id);
-    for (const sid of sids) await cascadeDeleteStorage(sid);
-    await db.deleteWhere("items","room_id",rid);
-    await db.delete("rooms",rid);
-    setItems(p=>p.filter(i=>i.roomId!==rid));
-    setRooms(p=>p.filter(r=>r.id!==rid));
+    try {
+      const sids = storages.filter(s=>s.roomId===rid).map(s=>s.id);
+      // Delete move_logs and lend_logs for all items in this room
+      const roomItemIds = items.filter(i=>i.roomId===rid).map(i=>i.id);
+      for (const iid of roomItemIds) {
+        await db.deleteWhere("move_logs","item_id",iid);
+        await db.deleteWhere("lend_logs","item_id",iid);
+      }
+      // Also delete move_logs referencing this room
+      await db.deleteWhere("move_logs","from_room",rid);
+      await db.deleteWhere("move_logs","to_room",rid);
+      // Cascade delete each storage (which handles containers + items)
+      for (const sid of sids) await cascadeDeleteStorage(sid);
+      // Delete any remaining items directly in the room
+      await db.deleteWhere("items","room_id",rid);
+      // Delete the room
+      await db.delete("rooms",rid);
+      // Update local state
+      setItems(p=>p.filter(i=>i.roomId!==rid));
+      setRooms(p=>p.filter(r=>r.id!==rid));
+      showToast("Room deleted");
+    } catch(e) {
+      console.error("cascadeDeleteRoom failed:", e);
+      showToast("Error deleting room — check console");
+    }
   };
   const moveStorageToRoom = async (sid, newRoomId) => {
     await db.update("storages", sid, {room_id: newRoomId});

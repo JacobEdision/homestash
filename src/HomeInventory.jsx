@@ -248,7 +248,12 @@ export default function App() {
   useEffect(()=>{
     if(!authUser)return;
     // Load users first so currentUser.houseId is available before rooms render
-db.getAll("users").then(d=>setUsers(d.map(mapUser))).then(async ()=>{
+supabase.from("users").select("*").then(async ({data:allU})=>{
+  const me = (allU||[]).find(u=>u.id===authUser.id);
+  const hid = me?.house_id||null;
+  const isSA = me?.role==="superadmin";
+  setUsers((isSA ? allU : (allU||[]).filter(u=>u.house_id===hid || u.id===authUser.id)).map(mapUser));
+}).then(async ()=>{
       const meRes = await supabase.from("users").select("*").eq("id", authUser.id).single();
       const houseId = meRes?.data?.house_id || null;
       const isSA = meRes?.data?.role === "superadmin";
